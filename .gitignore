@@ -1,0 +1,13 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.Python
+downloads/
+logs/
+.vercel
+.DS_Store
+*.zip
+
+.vercel

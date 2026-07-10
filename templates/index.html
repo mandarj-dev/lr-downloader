@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LR Document Downloader</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>LR Document Downloader</h1>
+      <p class="subtitle">Fetches LR documents from S3 and downloads them as a ZIP by Invoice No.</p>
+    </header>
+
+    <div class="info-bar">
+      <div><strong>S3 Base URL:</strong> <code>{{ base_s3_url }}</code></div>
+      <div><strong>POD suffix:</strong> <code>{{ pod_suffix }}</code> <span class="hint">(fetches <code>&lt;LR&gt;{{ pod_suffix }}.&lt;ext&gt;</code>)</span></div>
+      <div><strong>Extensions tried (in order):</strong> <code>{{ extensions }}</code></div>
+      <div><strong>Output:</strong> <code>ZIP download in your browser</code></div>
+    </div>
+
+    <form id="download-form">
+      <label for="invoice_no">Invoice No. <span class="hint">(used as the ZIP / folder name)</span></label>
+      <input type="text" id="invoice_no" name="invoice_no" placeholder="e.g. INV-2026-00458" required>
+
+      <label for="lr_numbers">LR Numbers <span class="hint">(one per line, or comma-separated)</span></label>
+      <textarea id="lr_numbers" name="lr_numbers" rows="10" placeholder="LR1001&#10;LR1002&#10;LR1003" required></textarea>
+
+      <button type="submit" id="submit-btn">Download Documents</button>
+    </form>
+
+    <div id="status" class="status hidden"></div>
+
+    <div id="results" class="results hidden">
+      <h2>Results</h2>
+      <div id="summary" class="summary"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>LR No.</th>
+            <th>Status</th>
+            <th>File</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
