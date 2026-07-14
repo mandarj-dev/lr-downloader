@@ -5,9 +5,9 @@ const resultsEl = document.getElementById("results");
 const summaryEl = document.getElementById("summary");
 const resultsBody = document.getElementById("results-body");
 
-const MAX_LR_PER_REQUEST =
-  (window.LR_DOWNLOADER_CONFIG && window.LR_DOWNLOADER_CONFIG.maxLrPerRequest) ||
-  50;
+// Keep each API call small enough for Vercel maxDuration. Hardcoded so a stale
+// or missing config never sends the full list in one request.
+const BATCH_SIZE = 50;
 
 function setStatus(message, type) {
   statusEl.textContent = message;
@@ -65,7 +65,42 @@ function chunkArray(items, size) {
   return chunks;
 }
 
+function emptyBatchResult() {
+  return {
+    zipBlob: null,
+    results: [],
+    success_count: 0,
+    not_found_count: 0,
+    total: 0,
+  };
+}
+
+function mergeBatchResults(a, b) {
+  return {
+    zipBlob: null,
+    zipBlobs: [...(a.zipBlobs || (a.zipBlob ? [a.zipBlob] : [])), ...(b.zipBlobs || (b.zipBlob ? [b.zipBlob] : []))],
+    results: [...a.results, ...b.results],
+    success_count: a.success_count + b.success_count,
+    not_found_count: a.not_found_count + b.not_found_count,
+    total: a.total + b.total,
+  };
+}
+
 async function fetchBatch(invoiceNo, lrChunk) {
+  if (!lrChunk.length) {
+    return emptyBatchResult();
+  }
+
+  // Never send more than BATCH_SIZE in one HTTP call.
+  if (lrChunk.length > BATCH_SIZE) {
+    let combined = emptyBatchResult();
+    combined.zipBlobs = [];
+    for (const part of chunkArray(lrChunk, BATCH_SIZE)) {
+      combined = mergeBatchResults(combined, await fetchBatch(invoiceNo, part));
+    }
+    return combined;
+  }
+
   const formData = new FormData();
   formData.append("invoice_no", invoiceNo);
   formData.append("lr_numbers", lrChunk.join("\n"));
@@ -82,8 +117,8 @@ async function fetchBatch(invoiceNo, lrChunk) {
     const resultsHeader = resp.headers.get("x-results");
     const results = resultsHeader ? JSON.parse(resultsHeader) : [];
     return {
-      ok: true,
       zipBlob: blob,
+      zipBlobs: [blob],
       results,
       success_count: Number(resp.headers.get("x-success-count") || 0),
       not_found_count: Number(resp.headers.get("x-not-found-count") || 0),
@@ -92,10 +127,20 @@ async function fetchBatch(invoiceNo, lrChunk) {
   }
 
   const data = await resp.json().catch(() => ({}));
+
+  // If the server still rejects the size, split and retry instead of surfacing
+  // the restriction error to the user.
+  if (resp.status === 413 && lrChunk.length > 1) {
+    const mid = Math.ceil(lrChunk.length / 2);
+    const left = await fetchBatch(invoiceNo, lrChunk.slice(0, mid));
+    const right = await fetchBatch(invoiceNo, lrChunk.slice(mid));
+    return mergeBatchResults(left, right);
+  }
+
   if (resp.status === 404 && data.results) {
     return {
-      ok: true,
       zipBlob: null,
+      zipBlobs: [],
       results: data.results,
       success_count: data.success_count || 0,
       not_found_count: data.not_found_count || 0,
@@ -129,8 +174,7 @@ async function mergeZipBlobs(zipBlobs, invoiceFolder, combinedPayload) {
   return master.generateAsync({ type: "blob" });
 }
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+async function handleDownload() {
   clearStatus();
   resultsEl.classList.add("hidden");
   resultsBody.innerHTML = "";
@@ -151,27 +195,20 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  const batches = chunkArray(lrList, MAX_LR_PER_REQUEST);
-  const zipBlobs = [];
-  const allResults = [];
-  let successCount = 0;
-  let notFoundCount = 0;
-
   submitBtn.disabled = true;
   submitBtn.textContent = "Downloading...";
+  setStatus("Downloading...", "loading");
+
+  let successCount = 0;
+  let notFoundCount = 0;
+  let allResults = [];
 
   try {
-    // Collect all chunk ZIPs in memory first — no browser download until the end.
-    setStatus("Downloading...", "loading");
-    for (let i = 0; i < batches.length; i++) {
-      const batch = await fetchBatch(invoiceNo, batches[i]);
-      allResults.push(...batch.results);
-      successCount += batch.success_count;
-      notFoundCount += batch.not_found_count;
-      if (batch.zipBlob) {
-        zipBlobs.push(batch.zipBlob);
-      }
-    }
+    const batch = await fetchBatch(invoiceNo, lrList);
+    allResults = batch.results;
+    successCount = batch.success_count;
+    notFoundCount = batch.not_found_count;
+    const zipBlobs = batch.zipBlobs || (batch.zipBlob ? [batch.zipBlob] : []);
 
     if (successCount === 0) {
       setStatus("No documents found for the given LR numbers.", "error");
@@ -193,7 +230,6 @@ form.addEventListener("submit", async (e) => {
       success_count: successCount,
       not_found_count: notFoundCount,
       results: allResults,
-      batches: batches.length,
       timestamp: new Date().toISOString().slice(0, 19),
     };
 
@@ -221,6 +257,17 @@ form.addEventListener("submit", async (e) => {
     submitBtn.disabled = false;
     submitBtn.textContent = "Download Documents";
   }
+}
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  handleDownload();
+});
+
+submitBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  handleDownload();
 });
 
 function renderResults(data) {

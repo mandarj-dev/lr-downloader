@@ -20,14 +20,14 @@
       <div><strong>Output:</strong> <code>ZIP download in your browser</code></div>
     </div>
 
-    <form id="download-form">
+    <form id="download-form" action="#" method="post" onsubmit="return false;">
       <label for="invoice_no">Invoice No. <span class="hint">(used as the ZIP / folder name)</span></label>
-      <input type="text" id="invoice_no" name="invoice_no" placeholder="e.g. INV-2026-00458" required>
+      <input type="text" id="invoice_no" placeholder="e.g. INV-2026-00458" required autocomplete="off">
 
-      <label for="lr_numbers">LR Numbers <span class="hint">(one per line, or comma-separated; large lists are split into batches of {{ max_lr_per_request }})</span></label>
-      <textarea id="lr_numbers" name="lr_numbers" rows="10" placeholder="LR1001&#10;LR1002&#10;LR1003" required></textarea>
+      <label for="lr_numbers">LR Numbers <span class="hint">(one per line, or comma-separated)</span></label>
+      <textarea id="lr_numbers" rows="10" placeholder="LR1001&#10;LR1002&#10;LR1003" required></textarea>
 
-      <button type="submit" id="submit-btn">Download Documents</button>
+      <button type="button" id="submit-btn">Download Documents</button>
     </form>
 
     <div id="status" class="status hidden"></div>
@@ -48,12 +48,7 @@
     </div>
   </div>
 
-  <script>
-    window.LR_DOWNLOADER_CONFIG = {
-      maxLrPerRequest: {{ max_lr_per_request }},
-    };
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>
