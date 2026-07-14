@@ -53,6 +53,8 @@ EXTENSIONS = [
 ]
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "20"))
 MAX_CONCURRENT_DOWNLOADS = int(os.getenv("MAX_CONCURRENT_DOWNLOADS", "5"))
+# Keep batches small enough to finish within Vercel maxDuration (60s).
+MAX_LR_PER_REQUEST = int(os.getenv("MAX_LR_PER_REQUEST", "50"))
 
 # ---------------------------------------------------------------------------
 # Logging (stdout only — Vercel has no persistent local filesystem)
@@ -158,6 +160,7 @@ async def index(request: Request):
             "base_s3_url": BASE_S3_URL,
             "pod_suffix": POD_SUFFIX,
             "extensions": ", ".join(EXTENSIONS),
+            "max_lr_per_request": MAX_LR_PER_REQUEST,
         },
     )
 
@@ -170,6 +173,21 @@ async def download_files(invoice_no: str = Form(...), lr_numbers: str = Form(...
     if not lr_list:
         return JSONResponse(
             status_code=400, content={"error": "No valid LR numbers provided."}
+        )
+
+    if len(lr_list) > MAX_LR_PER_REQUEST:
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": (
+                    f"Too many LR numbers ({len(lr_list)}). "
+                    f"Maximum per request is {MAX_LR_PER_REQUEST}. "
+                    "The UI splits large lists automatically — "
+                    "if you call the API directly, send batches of that size."
+                ),
+                "max_lr_per_request": MAX_LR_PER_REQUEST,
+                "provided": len(lr_list),
+            },
         )
 
     logger.info(
@@ -240,4 +258,5 @@ async def health():
         "base_s3_url": BASE_S3_URL,
         "pod_suffix": POD_SUFFIX,
         "extensions": EXTENSIONS,
+        "max_lr_per_request": MAX_LR_PER_REQUEST,
     }
