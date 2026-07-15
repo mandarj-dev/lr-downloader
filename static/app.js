@@ -86,7 +86,7 @@ function mergeBatchResults(a, b) {
   };
 }
 
-async function fetchBatch(invoiceNo, lrChunk) {
+async function fetchBatch(invoiceNo, lrChunk, onProgress) {
   if (!lrChunk.length) {
     return emptyBatchResult();
   }
@@ -95,8 +95,13 @@ async function fetchBatch(invoiceNo, lrChunk) {
   if (lrChunk.length > BATCH_SIZE) {
     let combined = emptyBatchResult();
     combined.zipBlobs = [];
-    for (const part of chunkArray(lrChunk, BATCH_SIZE)) {
-      combined = mergeBatchResults(combined, await fetchBatch(invoiceNo, part));
+    const parts = chunkArray(lrChunk, BATCH_SIZE);
+    for (let i = 0; i < parts.length; i++) {
+      if (onProgress) onProgress(i + 1, parts.length, parts[i].length);
+      combined = mergeBatchResults(
+        combined,
+        await fetchBatch(invoiceNo, parts[i])
+      );
     }
     return combined;
   }
@@ -148,7 +153,7 @@ async function fetchBatch(invoiceNo, lrChunk) {
     };
   }
 
-  throw new Error(data.error || `Batch failed (HTTP ${resp.status}).`);
+  throw new Error(data.error || "Something went wrong while fetching documents.");
 }
 
 async function mergeZipBlobs(zipBlobs, invoiceFolder, combinedPayload) {
@@ -185,33 +190,51 @@ async function handleDownload() {
   const lrNumbersRaw = document.getElementById("lr_numbers").value.trim();
 
   if (!invoiceNo || !lrNumbersRaw) {
-    setStatus("Please fill in both Invoice No. and LR Numbers.", "error");
+    setStatus("Please enter both the Invoice No. and the LR numbers.", "error");
     return;
   }
 
   const lrList = parseLrNumbers(lrNumbersRaw);
   if (!lrList.length) {
-    setStatus("No valid LR numbers provided.", "error");
+    setStatus("Please enter at least one valid LR number.", "error");
     return;
   }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = "Downloading...";
-  setStatus("Downloading...", "loading");
+  submitBtn.textContent = "Please wait...";
+
+  const totalBatches = Math.ceil(lrList.length / BATCH_SIZE);
+  if (totalBatches === 1) {
+    setStatus("Downloading your documents…", "loading");
+  } else {
+    setStatus(
+      `Preparing download — ${lrList.length} documents in ${totalBatches} parts…`,
+      "loading"
+    );
+  }
 
   let successCount = 0;
   let notFoundCount = 0;
   let allResults = [];
 
   try {
-    const batch = await fetchBatch(invoiceNo, lrList);
+    const batch = await fetchBatch(invoiceNo, lrList, (current, total, count) => {
+      setStatus(
+        `Downloading part ${current} of ${total} (${count} documents)…`,
+        "loading"
+      );
+      submitBtn.textContent = `Part ${current}/${total}`;
+    });
     allResults = batch.results;
     successCount = batch.success_count;
     notFoundCount = batch.not_found_count;
     const zipBlobs = batch.zipBlobs || (batch.zipBlob ? [batch.zipBlob] : []);
 
     if (successCount === 0) {
-      setStatus("No documents found for the given LR numbers.", "error");
+      setStatus(
+        "We couldn't find any documents for these LR numbers. Please double-check and try again.",
+        "error"
+      );
       renderResults({
         total: lrList.length,
         success_count: 0,
@@ -221,8 +244,8 @@ async function handleDownload() {
       return;
     }
 
-    setStatus("Building ZIP...", "loading");
-    submitBtn.textContent = "Building ZIP...";
+    setStatus("Almost done — packing everything into one ZIP file…", "loading");
+    submitBtn.textContent = "Packing ZIP…";
 
     const payload = {
       invoice_no: invoiceNo,
@@ -242,9 +265,15 @@ async function handleDownload() {
       ...payload,
       zip_name: zipName,
     });
-    setStatus(`Downloaded ${zipName}`, "success");
+    setStatus(
+      `All set! Your file “${zipName}” is ready (${successCount} of ${lrList.length} documents).`,
+      "success"
+    );
   } catch (err) {
-    setStatus(`Request failed: ${err.message}`, "error");
+    setStatus(
+      `Sorry, the download couldn't be completed. ${err.message}`,
+      "error"
+    );
     if (allResults.length) {
       renderResults({
         total: lrList.length,
