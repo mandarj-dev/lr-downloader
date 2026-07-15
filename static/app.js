@@ -7,7 +7,8 @@ const resultsBody = document.getElementById("results-body");
 
 // Keep each API call small enough for Vercel maxDuration. Hardcoded so a stale
 // or missing config never sends the full list in one request.
-const BATCH_SIZE = 50;
+// Keep in sync with server MAX_LR_PER_REQUEST default (multi-source needs smaller batches).
+const BATCH_SIZE = 25;
 
 function setStatus(message, type) {
   statusEl.textContent = message;

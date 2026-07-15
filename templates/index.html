@@ -14,8 +14,12 @@
     </header>
 
     <div class="info-bar">
-      <div><strong>S3 Base URL:</strong> <code>{{ base_s3_url }}</code></div>
-      <div><strong>POD suffix:</strong> <code>{{ pod_suffix }}</code> <span class="hint">(fetches <code>&lt;LR&gt;{{ pod_suffix }}.&lt;ext&gt;</code>)</span></div>
+      <div><strong>S3 Sources (tried in order for each LR):</strong></div>
+      <ol class="source-list">
+        {% for source in sources %}
+        <li><code>{{ source.url }}&lt;LR No&gt;{{ source.suffix }}.&lt;ext&gt;</code></li>
+        {% endfor %}
+      </ol>
       <div><strong>Extensions tried (in order):</strong> <code>{{ extensions }}</code></div>
       <div><strong>Output:</strong> <code>ZIP download in your browser</code></div>
     </div>
@@ -49,6 +53,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>
