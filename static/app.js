@@ -4,6 +4,10 @@ const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 const summaryEl = document.getElementById("summary");
 const resultsBody = document.getElementById("results-body");
+const resultsFilter = document.getElementById("results-filter");
+const filterCountEl = document.getElementById("filter-count");
+
+let latestResults = [];
 
 // Keep each API call small enough for Vercel maxDuration. Hardcoded so a stale
 // or missing config never sends the full list in one request.
@@ -300,17 +304,47 @@ submitBtn.addEventListener("click", (e) => {
   handleDownload();
 });
 
+function applyResultsFilter() {
+  const filter = resultsFilter ? resultsFilter.value : "all";
+  const rows = resultsBody.querySelectorAll("tr");
+  let visible = 0;
+
+  rows.forEach((row) => {
+    const status = row.dataset.status || "";
+    const show = filter === "all" || status === filter;
+    row.hidden = !show;
+    if (show) visible += 1;
+  });
+
+  if (filterCountEl) {
+    if (filter === "all") {
+      filterCountEl.textContent = `${visible} shown`;
+    } else if (filter === "success") {
+      filterCountEl.textContent = `${visible} found`;
+    } else {
+      filterCountEl.textContent = `${visible} not found`;
+    }
+  }
+}
+
 function renderResults(data) {
+  latestResults = data.results || [];
+  if (resultsFilter) {
+    resultsFilter.value = "all";
+  }
+
   summaryEl.innerHTML = `
     <strong>${data.success_count}</strong> of <strong>${data.total}</strong> documents downloaded successfully.
     ${data.not_found_count > 0 ? `<span style="color:#c0392b;"> ${data.not_found_count} not found.</span>` : ""}
     ${data.zip_name ? `<br>ZIP file: <code>${data.zip_name}</code>` : ""}
   `;
 
-  data.results.forEach((r) => {
+  resultsBody.innerHTML = "";
+  latestResults.forEach((r) => {
     const row = document.createElement("tr");
     const badgeClass = r.status === "success" ? "success" : "not_found";
     const badgeText = r.status === "success" ? "Success" : "Not Found";
+    row.dataset.status = r.status === "success" ? "success" : "not_found";
     row.innerHTML = `
       <td>${r.lr_no}</td>
       <td><span class="badge ${badgeClass}">${badgeText}</span></td>
@@ -319,5 +353,10 @@ function renderResults(data) {
     resultsBody.appendChild(row);
   });
 
+  applyResultsFilter();
   resultsEl.classList.remove("hidden");
+}
+
+if (resultsFilter) {
+  resultsFilter.addEventListener("change", applyResultsFilter);
 }

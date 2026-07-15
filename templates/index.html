@@ -39,6 +39,15 @@
     <div id="results" class="results hidden">
       <h2>Results</h2>
       <div id="summary" class="summary"></div>
+      <div class="results-toolbar">
+        <label for="results-filter">Show</label>
+        <select id="results-filter">
+          <option value="all">All records</option>
+          <option value="success">Found / Success</option>
+          <option value="not_found">Not found</option>
+        </select>
+        <span id="filter-count" class="hint"></span>
+      </div>
       <table>
         <thead>
           <tr>
@@ -53,6 +62,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

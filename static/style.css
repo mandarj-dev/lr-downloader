@@ -145,6 +145,35 @@ button:disabled { background: #a5b8ae; cursor: not-allowed; }
 
 .summary strong { color: var(--text); }
 
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.results-toolbar label {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.results-toolbar select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: var(--card);
+  color: var(--text);
+}
+
+.results-toolbar select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
